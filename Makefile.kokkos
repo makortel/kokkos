@@ -16,7 +16,8 @@ KOKKOS_DEBUG ?= "no"
 # Options: hwloc,librt,experimental_memkind
 KOKKOS_USE_TPLS ?= ""
 # Options: c++11,c++14,c++1y,c++17,c++1z,c++2a
-KOKKOS_CXX_STANDARD ?= "c++11"
+#KOKKOS_CXX_STANDARD ?= "c++11"
+KOKKOS_CXX_STANDARD ?= "c++14"
 # Options: aggressive_vectorization,disable_profiling,enable_deprecated_code,disable_deprecated_code,enable_large_mem_tests
 KOKKOS_OPTIONS ?= ""
 # Option for setting ETI path
@@ -78,12 +79,16 @@ KOKKOS_INTERNAL_USE_PTHREADS := $(call kokkos_has_string,$(KOKKOS_DEVICES),Pthre
 KOKKOS_INTERNAL_USE_QTHREADS := $(call kokkos_has_string,$(KOKKOS_DEVICES),Qthreads)
 KOKKOS_INTERNAL_USE_HPX := $(call kokkos_has_string,$(KOKKOS_DEVICES),HPX)
 KOKKOS_INTERNAL_USE_SERIAL := $(call kokkos_has_string,$(KOKKOS_DEVICES),Serial)
+KOKKOS_INTERNAL_USE_TBB := $(call kokkos_has_string,$(KOKKOS_DEVICES),TBB)
+
 
 ifeq ($(KOKKOS_INTERNAL_USE_OPENMP), 0)
   ifeq ($(KOKKOS_INTERNAL_USE_PTHREADS), 0)
     ifeq ($(KOKKOS_INTERNAL_USE_QTHREADS), 0)
       ifeq ($(KOKKOS_INTERNAL_USE_HPX), 0)
-        KOKKOS_INTERNAL_USE_SERIAL := 1
+        ifeq ($(KOKKOS_INTERNAL_USE_TBB), 0 )
+          KOKKOS_INTERNAL_USE_SERIAL := 1
+        endif
       endif
     endif
   endif
@@ -450,6 +455,10 @@ endif
 
 ifeq ($(KOKKOS_INTERNAL_USE_HPX), 1)
   tmp := $(call kokkos_append_header,"\#define KOKKOS_ENABLE_HPX")
+endif
+
+ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
+  tmp := $(call kokkos_append_header,"\#define KOKKOS_ENABLE_TBB")
 endif
 
 ifeq ($(KOKKOS_INTERNAL_USE_SERIAL), 1)
@@ -1186,6 +1195,38 @@ ifeq ($(KOKKOS_INTERNAL_USE_HPX), 1)
   endif
   KOKKOS_TPL_LIBRARY_NAMES += hpx
 endif
+
+ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
+  KOKKOS_SRC += $(wildcard $(KOKKOS_PATH)/core/src/TBB/*.cpp)
+  KOKKOS_HEADERS += $(wildcard $(KOKKOS_PATH)/core/src/TBB/*.hpp)
+  ifneq ($(HPX_PATH),)
+    ifeq ($(KOKKOS_INTERNAL_ENABLE_DEBUG), 1)
+      KOKKOS_CXXFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --cflags tbb_application_debug)
+      KOKKOS_CXXLDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application_debug)
+      KOKKOS_LDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application_debug)
+    else
+      KOKKOS_CXXFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --cflags tbb_application)
+      KOKKOS_CXXLDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application)
+      KOKKOS_LDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application)
+    endif
+  else
+    ifeq ($(KOKKOS_INTERNAL_ENABLE_DEBUG), 1)
+      KOKKOS_CXXFLAGS += $(shell pkg-config --cflags tbb_application_debug)
+      KOKKOS_CXXLDFLAGS += $(shell pkg-config --libs tbb_application_debug)
+      KOKKOS_LDFLAGS += $(shell pkg-config --libs tbb_application_debug)
+    else
+      #KOKKOS_CXXFLAGS += $(shell pkg-config --cflags tbb_application)
+      #KOKKOS_CXXLDFLAGS += $(shell pkg-config --libs tbb_application)
+      #KOKKOS_LDFLAGS += $(shell pkg-config --libs tbb_application)
+      KOKKOS_CXXFLAGS += -DTBB_USE_GLIBCXX_VERSION=70401 -I/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/include
+      #KOKKOS_CXXLDFLAGS += $(shell pkg-config --libs tbb_application)
+      KOKKOS_LDFLAGS += -L/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/lib
+    endif
+  endif
+  KOKKOS_LIBS += -ltbb
+  KOKKOS_TPL_LIBRARY_NAMES += tbb
+endif
+
 
 # Explicitly set the GCC Toolchain for Clang.
 ifeq ($(KOKKOS_INTERNAL_COMPILER_CLANG), 1)
