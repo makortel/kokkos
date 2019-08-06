@@ -703,11 +703,14 @@ private:
 public:
   void execute() const { 
     tbb::this_task_arena::isolate([this]{
-        tbb::parallel_for(tbb::blocked_range<decltype(m_policy.begin())>(m_policy.begin(),
-                                                                         m_policy.end(),
-                                                                         m_policy.chunk_size()),
-                          [this](const Member i) {
-                            iterate_type(m_mdr_policy, m_functor)(i);
+        using RangeType = tbb::blocked_range<decltype(m_policy.begin())>;
+        tbb::parallel_for(RangeType(m_policy.begin(),
+                                    m_policy.end(),
+                                    m_policy.chunk_size()),
+                          [this](const RangeType& r) {
+                            for(auto i = r.begin(); i != r.end(); ++i) {
+                              iterate_type(m_mdr_policy, m_functor)(i);
+                            }
                           });
       });
   }
