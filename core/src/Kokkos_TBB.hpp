@@ -52,6 +52,7 @@
 #include <Kokkos_HostSpace.hpp>
 #include <cstddef>
 #include <iosfwd>
+#include <cassert>
 
 #ifdef KOKKOS_ENABLE_HBWSPACE
 #include <Kokkos_HBWSpace.hpp>
@@ -232,6 +233,12 @@ public:
                     "TBB instance\n");
     }
   }
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
+  static bool is_initialized() noexcept {
+    return impl_is_initialized();
+  }
+#endif
 
   static int concurrency();
   static void impl_initialize(int thread_count);
