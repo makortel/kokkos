@@ -291,13 +291,6 @@ public:
 };
 } // namespace Experimental
 
-namespace Impl {
-
-  //CDJ This is an internal detail only used by HPX. TBB may want to do it differently
-template <typename Closure>
-inline void dispatch_execute_task(Closure *closure) {
-}
-} // namespace Impl
 } // namespace Kokkos
 
 namespace Kokkos {
@@ -588,7 +581,33 @@ public:
   }
 
   inline int chunk_size() const { return m_chunk_size; }
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
+  /** \brief set chunk_size to a discrete value*/
+  inline TeamPolicyInternal set_chunk_size(typename traits::index_type chunk_size_) const {
+    TeamPolicyInternal p = *this;
+    p.m_chunk_size = chunk_size_;
+    return p;
+  }
 
+  inline TeamPolicyInternal set_scratch_size(const int& level, const PerTeamValue& per_team) const {
+    TeamPolicyInternal p = *this;
+    p.m_team_scratch_size[level] = per_team.value;
+    return p;
+  }
+
+  inline TeamPolicyInternal set_scratch_size(const int& level, const PerThreadValue& per_thread) const {
+    TeamPolicyInternal p = *this;
+    p.m_thread_scratch_size[level] = per_thread.value;
+    return p;
+  }
+
+  inline TeamPolicyInternal set_scratch_size(const int& level, const PerTeamValue& per_team, const PerThreadValue& per_thread) const {
+    TeamPolicyInternal p = *this;
+    p.m_team_scratch_size[level] = per_team.value;
+    p.m_thread_scratch_size[level] = per_thread.value;
+    return p;
+  }
+#else
   inline TeamPolicyInternal &
   set_chunk_size(typename traits::index_type chunk_size_) {
     m_chunk_size = chunk_size_;
@@ -614,6 +633,7 @@ public:
     m_thread_scratch_size[level] = per_thread.value;
     return *this;
   }
+#endif
 };
 } // namespace Impl
 } // namespace Kokkos
@@ -1107,11 +1127,55 @@ private:
   bool m_force_synchronous;
 
 public:
-  /*
+  
   void execute() const {
-    //  dispatch_execute_task(this);
-  }
+    const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
+    const std::size_t value_size =
+        Analysis::value_size(ReducerConditional::select(m_functor, m_reducer));
 
+    thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
+    buffer.resize(num_worker_threads, value_size);
+
+    tbb::parallel_for(0, num_worker_threads, [this, &buffer](std::size_t t) {
+      ValueInit::init(ReducerConditional::select(m_functor, m_reducer),
+                      reinterpret_cast<pointer_type>(buffer.get(t)));
+    });
+    
+    using RangeType = tbb::blocked_range<decltype(m_policy.begin())>;
+    tbb::this_task_arena::isolate([this, &buffer]{
+        tbb::parallel_for(RangeType(m_policy.begin(),
+                                    m_policy.end(),
+                                    m_policy.chunk_size()),
+                          [this,&buffer](const RangeType& r) {
+                            reference_type update = ValueOps::reference(
+                                                                        reinterpret_cast<pointer_type>(buffer.get(
+                                                                                                                  Kokkos::Experimental::TBB::impl_hardware_thread_id())));
+                            for(auto i = r.begin(); i != r.end(); ++i) {
+                              iterate_type(m_mdr_policy, m_functor, update)(i);
+                            }
+                          });
+      }); //isolate
+
+    for (int i = 1; i < num_worker_threads; ++i) {
+      ValueJoin::join(ReducerConditional::select(m_functor, m_reducer),
+                      reinterpret_cast<pointer_type>(buffer.get(0)),
+                      reinterpret_cast<pointer_type>(buffer.get(i)));
+    }
+
+    Kokkos::Impl::FunctorFinal<ReducerTypeFwd, WorkTagFwd>::final(
+        ReducerConditional::select(m_functor, m_reducer),
+        reinterpret_cast<pointer_type>(buffer.get(0)));
+
+    if (m_result_ptr != nullptr) {
+      const int n = Analysis::value_count(
+          ReducerConditional::select(m_functor, m_reducer));
+
+      for (int j = 0; j < n; ++j) {
+        m_result_ptr[j] = reinterpret_cast<pointer_type>(buffer.get(0))[j];
+      }
+    }
+  }
+  /*
   //CDJ
   inline void execute_task() const {
     const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
@@ -1651,10 +1715,59 @@ private:
   }
 
 public:
-  /*  void execute() const {
-    dispatch_execute_task(this);
-  }
+    void execute() const {
+      const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
+      const std::size_t value_size =
+        Analysis::value_size(ReducerConditional::select(m_functor, m_reducer));
 
+      thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
+      buffer.resize(num_worker_threads, value_size + m_shared);
+      
+
+      tbb::this_task_arena::isolate([this, value_size, &buffer, num_worker_threads]{
+      
+          tbb::parallel_for(0, num_worker_threads, [this, &buffer](std::size_t t) {
+              ValueInit::init(ReducerConditional::select(m_functor, m_reducer),
+                              reinterpret_cast<pointer_type>(buffer.get(t)));
+            });
+
+          using RangeType = tbb::blocked_range<decltype(m_policy.league_size())>;
+          tbb::parallel_for(RangeType(0,
+                                      m_policy.league_size(),
+                                      m_policy.chunk_size()),
+                            [this,&buffer, value_size](const RangeType& r) {
+                              auto t = Kokkos::Experimental::TBB::impl_hardware_thread_id();
+                              reference_type update = ValueOps::reference(
+                                                                          reinterpret_cast<pointer_type>(buffer.get(
+                                                                                                                  t)));
+                            for(auto league_rank = r.begin(); league_rank != r.end(); ++league_rank) {
+                              execute_functor<WorkTag>(m_functor, m_policy, league_rank,
+                                                       buffer.get(t) + value_size, m_shared,
+                                                       update);
+                            }
+                            });
+        });//isolate
+      
+      const pointer_type ptr = reinterpret_cast<pointer_type>(buffer.get(0));
+      for (int t = 1; t < num_worker_threads; ++t) {
+        ValueJoin::join(ReducerConditional::select(m_functor, m_reducer), ptr,
+                        reinterpret_cast<pointer_type>(buffer.get(t)));
+      }
+      
+      Kokkos::Impl::FunctorFinal<ReducerTypeFwd, WorkTagFwd>::final(
+                                                                    ReducerConditional::select(m_functor, m_reducer), ptr);
+      
+      if (m_result_ptr) {
+        const int n = Analysis::value_count(
+                                            ReducerConditional::select(m_functor, m_reducer));
+        
+        for (int j = 0; j < n; ++j) {
+          m_result_ptr[j] = ptr[j];
+        }
+      }
+      
+    }
+  /*
   inline void execute_task() const {
     const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
     const std::size_t value_size =
