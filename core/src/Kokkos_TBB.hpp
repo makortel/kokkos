@@ -238,6 +238,12 @@ public:
   static bool is_initialized() noexcept {
     return impl_is_initialized();
   }
+
+  inline
+    static int thread_pool_size() noexcept {
+    return impl_thread_pool_size();
+  }
+
 #endif
 
   static int concurrency();
@@ -634,6 +640,36 @@ public:
     return *this;
   }
 #endif
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
+protected:
+
+  /** \brief set chunk_size to a discrete value*/
+  inline TeamPolicyInternal internal_set_chunk_size(typename traits::index_type chunk_size_) {
+    m_chunk_size = chunk_size_;
+    return *this;
+  }
+
+  /** \brief set per team scratch size for a specific level of the scratch hierarchy */
+  inline TeamPolicyInternal internal_set_scratch_size(const int& level, const PerTeamValue& per_team) {
+    m_team_scratch_size[level] = per_team.value;
+    return *this;
+  }
+
+  /** \brief set per thread scratch size for a specific level of the scratch hierarchy */
+  inline TeamPolicyInternal internal_set_scratch_size(const int& level, const PerThreadValue& per_thread) {
+    m_thread_scratch_size[level] = per_thread.value;
+    return *this;
+  }
+
+  /** \brief set per thread and per team scratch size for a specific level of the scratch hierarchy */
+  inline TeamPolicyInternal internal_set_scratch_size(const int& level, const PerTeamValue& per_team, const PerThreadValue& per_thread) {
+    m_team_scratch_size[level] = per_team.value;
+    m_thread_scratch_size[level] = per_thread.value;
+    return *this;
+  }
+#endif
+
 };
 } // namespace Impl
 } // namespace Kokkos
