@@ -12,7 +12,7 @@ KOKKOS_DEVICES ?= "Pthread"
 # AMD-CPUS: AMDAVX,Ryzen,EPYC
 KOKKOS_ARCH ?= ""
 # Options: yes,no
-KOKKOS_DEBUG ?= "no"
+KOKKOS_DEBUG ?= "yes"
 # Options: hwloc,librt,experimental_memkind
 KOKKOS_USE_TPLS ?= ""
 # Options: c++11,c++14,c++1y,c++17,c++1z,c++2a
@@ -1208,21 +1208,27 @@ endif
 ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
   KOKKOS_SRC += $(wildcard $(KOKKOS_PATH)/core/src/TBB/*.cpp)
   KOKKOS_HEADERS += $(wildcard $(KOKKOS_PATH)/core/src/TBB/*.hpp)
-  ifneq ($(HPX_PATH),)
+  ifneq ($(TBB_PATH),)
     ifeq ($(KOKKOS_INTERNAL_ENABLE_DEBUG), 1)
-      KOKKOS_CXXFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --cflags tbb_application_debug)
-      KOKKOS_CXXLDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application_debug)
-      KOKKOS_LDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application_debug)
+      #KOKKOS_CXXFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --cflags tbb_debug)
+      #KOKKOS_CXXLDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_debug)
+      #KOKKOS_LDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_debug)
+      KOKKOS_CXXFLAGS += -DTBB_USE_GLIBCXX_VERSION=70401 -I/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/include
+      KOKKOS_LDFLAGS += -L/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/lib
     else
-      KOKKOS_CXXFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --cflags tbb_application)
-      KOKKOS_CXXLDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application)
-      KOKKOS_LDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb_application)
+      #KOKKOS_CXXFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --cflags tbb)
+      #KOKKOS_CXXLDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb)
+      #KOKKOS_LDFLAGS += $(shell PKG_CONFIG_PATH=$(TBB_PATH)/lib64/pkgconfig pkg-config --libs tbb)
+      KOKKOS_CXXFLAGS += -DTBB_USE_GLIBCXX_VERSION=70401 -I/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/include
+      KOKKOS_LDFLAGS += -L/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/lib
     endif
   else
     ifeq ($(KOKKOS_INTERNAL_ENABLE_DEBUG), 1)
-      KOKKOS_CXXFLAGS += $(shell pkg-config --cflags tbb_application_debug)
-      KOKKOS_CXXLDFLAGS += $(shell pkg-config --libs tbb_application_debug)
-      KOKKOS_LDFLAGS += $(shell pkg-config --libs tbb_application_debug)
+      #KOKKOS_CXXFLAGS += $(shell pkg-config --cflags tbb_debug)
+      #KOKKOS_CXXLDFLAGS += $(shell pkg-config --libs tbb_debug)
+      #KOKKOS_LDFLAGS += $(shell pkg-config --libs tbb_debug)
+      KOKKOS_CXXFLAGS += -DTBB_USE_GLIBCXX_VERSION=70401 -I/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/include
+      KOKKOS_LDFLAGS += -L/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/lib
     else
       #KOKKOS_CXXFLAGS += $(shell pkg-config --cflags tbb_application)
       #KOKKOS_CXXLDFLAGS += $(shell pkg-config --libs tbb_application)
@@ -1232,8 +1238,13 @@ ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
       KOKKOS_LDFLAGS += -L/cvmfs/cms.cern.ch/slc7_amd64_gcc700/external/tbb/2019_U8/lib
     endif
   endif
-  KOKKOS_LIBS += -ltbb
-  KOKKOS_TPL_LIBRARY_NAMES += tbb
+  ifeq ($(KOKKOS_INTERNAL_ENABLE_DEBUG), 1)
+    KOKKOS_LIBS += -ltbb_debug
+    KOKKOS_TPL_LIBRARY_NAMES += tbb_debug
+  else
+    KOKKOS_LIBS += -ltbb
+    KOKKOS_TPL_LIBRARY_NAMES += tbb
+  endif
 endif
 
 
