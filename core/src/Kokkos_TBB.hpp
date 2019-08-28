@@ -77,6 +77,7 @@
 #include <tbb/task_arena.h>
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
+#include <tbb/parallel_scan.h>
 #include <tbb/blocked_range.h>
 
 #include <iostream>
@@ -242,6 +243,10 @@ public:
   inline
     static int thread_pool_size() noexcept {
     return impl_thread_pool_size();
+  }
+
+  static int hardware_thread_id() noexcept {
+    return impl_hardware_thread_id();
   }
 
 #endif
@@ -1357,8 +1362,40 @@ private:
     }
   }
 
+  using RangeType = tbb::blocked_range<decltype(m_policy.begin())>;
+
+  class Body {
+
+    value_type m_sum; 
+    FunctorType const& m_functor;
+  public:
+    Body(FunctorType const& iFunc): m_functor(iFunc) {
+      ValueInit::init(m_functor, reinterpret_cast<pointer_type>(&m_sum) );
+    }
+    template<typename Tag>
+    void operator()( const RangeType& r, Tag ) {
+      execute_functor_range<WorkTag>(m_functor, r.begin(), r.end(), m_sum, Tag::is_final_scan());
+    }
+    
+    Body( Body& b, tbb::split ) : m_functor(b.m_functor) {
+      ValueInit::init(m_functor, reinterpret_cast<pointer_type>(&m_sum) );
+    }
+    void reverse_join( Body& a ) { ValueJoin::join(m_functor, &m_sum, &a.m_sum); }
+    void assign( Body& b ) { m_sum = b.m_sum; }
+  
+  };
 public:
-  //void execute() const { dispatch_execute_task(this); }
+  void execute() const { 
+
+    Body body(m_functor);
+
+    tbb::this_task_arena::isolate([this,&body]{
+        tbb::parallel_scan(RangeType(m_policy.begin(),
+                                     m_policy.end(),
+                                     m_policy.chunk_size()),
+                           body);
+      });
+  }
 
   /*
   inline void execute_task() const {
@@ -1467,8 +1504,44 @@ private:
     }
   }
 
+  using RangeType = tbb::blocked_range<decltype(m_policy.begin())>;
+
+  class Body {
+
+    value_type m_sum; 
+    FunctorType const& m_functor;
+  public:
+    Body(FunctorType const& iFunc): m_functor(iFunc) {
+      ValueInit::init(m_functor, reinterpret_cast<pointer_type>(&m_sum) );
+    }
+    template<typename Tag>
+    void operator()( const RangeType& r, Tag ) {
+      execute_functor_range<WorkTag>(m_functor, r.begin(), r.end(), m_sum, Tag::is_final_scan());
+    }
+    
+    Body( Body& b, tbb::split ) : m_functor(b.m_functor) {
+      ValueInit::init(m_functor, reinterpret_cast<pointer_type>(&m_sum) );
+    }
+    void reverse_join( Body& a ) { ValueJoin::join(m_functor, &m_sum, &a.m_sum); }
+    void assign( Body& b ) { m_sum = b.m_sum; }
+  
+    value_type const& sum() const { return m_sum;}
+  
+  };
+
 public:
-  //void execute() const { dispatch_execute_task(this); }
+  void execute() const { 
+    Body body(m_functor);
+
+    using RangeType = tbb::blocked_range<decltype(m_policy.begin())>;
+    tbb::this_task_arena::isolate([this,&body]{
+        tbb::parallel_scan(RangeType(m_policy.begin(),
+                                     m_policy.end(),
+                                     m_policy.chunk_size()),
+                           body);
+      });
+    m_returnvalue = body.sum();
+  }
 
   /*
   inline void execute_task() const {
