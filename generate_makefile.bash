@@ -18,6 +18,9 @@ do
     --hpx-path*)
       HPX_PATH="${key#*=}"
       ;;
+    --tbb-path*)
+      TBB_PATH="${key#*=}"
+      ;;
     --prefix*)
       PREFIX="${key#*=}"
       ;;
@@ -59,6 +62,12 @@ do
       KOKKOS_DEVICES="${KOKKOS_DEVICES},HPX"
       if [ -z "$HPX_PATH" ]; then
         HPX_PATH="${key#*=}"
+      fi
+      ;;
+    --with-tbb*)
+      KOKKOS_DEVICES="${KOKKOS_DEVICES},TBB"
+      if [ -z "$TBB_PATH" ]; then
+        TBB_PATH="${key#*=}"
       fi
       ;;
     --with-devices*)
@@ -298,6 +307,10 @@ fi
 
 if [ ${#HPX_PATH} -gt 0 ]; then
     KOKKOS_SETTINGS="${KOKKOS_SETTINGS} HPX_PATH=${HPX_PATH}"
+fi
+
+if [ ${#TBB_PATH} -gt 0 ]; then
+    KOKKOS_SETTINGS="${KOKKOS_SETTINGS} TBB_PATH=${TBB_PATH}"
 fi
 
 if [ ${#KOKKOS_OPT} -gt 0 ]; then
