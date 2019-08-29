@@ -1679,7 +1679,28 @@ private:
   }
 
 public:
-  //void execute() const { dispatch_execute_task(this); }
+  void execute() const { 
+    const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
+    
+    thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
+    buffer.resize(num_worker_threads, m_shared);
+
+    tbb::this_task_arena::isolate([this, &buffer]{
+        using RangeType = tbb::blocked_range<decltype(m_policy.league_size())>;
+        tbb::parallel_for(RangeType(0,
+                                    m_policy.league_size(),
+                                    m_policy.chunk_size()),
+                          [this, &buffer](const RangeType& r) {
+                            for(auto league_rank = r.begin(); league_rank != r.end(); ++league_rank) {
+                              execute_functor<WorkTag>(
+                                                       m_functor, m_policy, league_rank,
+                                                       buffer.get(Kokkos::Experimental::TBB::impl_hardware_thread_id()),
+                                                       m_shared);
+                            }
+                          });
+      });
+    
+ }
 
   /*
   inline void execute_task() const {

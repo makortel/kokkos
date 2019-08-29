@@ -327,10 +327,10 @@ ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
 	OBJ_TBB += TestTBB_AtomicOperations_int.o TestTBB_AtomicOperations_unsignedint.o TestTBB_AtomicOperations_longint.o
 	OBJ_TBB += TestTBB_AtomicOperations_unsignedlongint.o TestTBB_AtomicOperations_longlongint.o TestTBB_AtomicOperations_double.o TestTBB_AtomicOperations_float.o
 	OBJ_TBB += TestTBB_AtomicViews.o TestTBB_Atomics.o
-#	OBJ_TBB += TestTBB_Team.o
-#	OBJ_TBB += TestTBB_TeamVectorRange.o
-#	OBJ_TBB += TestTBB_TeamScratch.o
-#	OBJ_TBB += TestTBB_TeamReductionScan.o
+	OBJ_TBB += TestTBB_Team.o
+	OBJ_TBB += TestTBB_TeamVectorRange.o
+	OBJ_TBB += TestTBB_TeamScratch.o
+	OBJ_TBB += TestTBB_TeamReductionScan.o
 	OBJ_TBB += TestTBB_Other.o
 	OBJ_TBB += TestTBB_MDRange_a.o TestTBB_MDRange_b.o TestTBB_MDRange_c.o TestTBB_MDRange_d.o TestTBB_MDRange_e.o
 	OBJ_TBB += TestTBB_Crs.o
