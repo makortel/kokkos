@@ -104,7 +104,7 @@ endif
 ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
 Kokkos_TBB.o: $(KOKKOS_CPP_DEPENDS) $(KOKKOS_PATH)/core/src/TBB/Kokkos_TBB.cpp
 	$(CXX) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) -c $(KOKKOS_PATH)/core/src/TBB/Kokkos_TBB.cpp
-Kokkos_TBB_Task.o: $(KOKKOS_CPP_DEPENDS) $(KOKKOS_PATH)/core/src/HPX/Kokkos_TBB_Task.cpp
+Kokkos_TBB_Task.o: $(KOKKOS_CPP_DEPENDS) $(KOKKOS_PATH)/core/src/TBB/Kokkos_TBB_Task.cpp
 	$(CXX) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) -c $(KOKKOS_PATH)/core/src/TBB/Kokkos_TBB_Task.cpp
 endif
 
