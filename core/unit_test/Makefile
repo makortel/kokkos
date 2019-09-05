@@ -335,7 +335,7 @@ ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
 	OBJ_TBB += TestTBB_MDRange_a.o TestTBB_MDRange_b.o TestTBB_MDRange_c.o TestTBB_MDRange_d.o TestTBB_MDRange_e.o
 	OBJ_TBB += TestTBB_Crs.o
 	OBJ_TBB += TestTBB_Task.o
-#	OBJ_TBB += TestTBB_WorkGraph.o
+	OBJ_TBB += TestTBB_WorkGraph.o
 	OBJ_TBB += TestTBB_UniqueToken.o
 
 	TARGETS += KokkosCore_UnitTest_TBB

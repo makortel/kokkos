@@ -259,4 +259,8 @@ public:
 #include "HPX/Kokkos_HPX_WorkGraphPolicy.hpp"
 #endif
 
+#ifdef KOKKOS_ENABLE_TBB
+#include "TBB/Kokkos_TBB_WorkGraphPolicy.hpp"
+#endif
+
 #endif /* #define KOKKOS_WORKGRAPHPOLICY_HPP */
