@@ -814,8 +814,6 @@ private:
   const ReducerType m_reducer;
   const pointer_type m_result_ptr;
 
-  bool m_force_synchronous;
-
   template <class TagType>
   inline static
       typename std::enable_if<std::is_same<TagType, void>::value>::type
@@ -982,14 +980,12 @@ public:
                                   !Kokkos::is_reducer_type<ReducerType>::value,
                               void *>::type = NULL)
       : m_functor(arg_functor), m_policy(arg_policy), m_reducer(InvalidType()),
-        m_result_ptr(arg_view.data()),
-        m_force_synchronous(!arg_view.impl_track().has_record()) {}
+        m_result_ptr(arg_view.data()) {}
 
   inline ParallelReduce(const FunctorType &arg_functor, Policy arg_policy,
                         const ReducerType &reducer)
       : m_functor(arg_functor), m_policy(arg_policy), m_reducer(reducer),
-        m_result_ptr(reducer.view().data()),
-        m_force_synchronous(!reducer.view().impl_track().has_record()) {}
+        m_result_ptr(reducer.view().data()) {}
 };
 
 template <class FunctorType, class ReducerType, class... Traits>
@@ -1025,8 +1021,6 @@ private:
   const Policy m_policy;
   const ReducerType m_reducer;
   const pointer_type m_result_ptr;
-
-  bool m_force_synchronous;
 
 public:
   
@@ -1087,15 +1081,13 @@ public:
                               void *>::type = NULL)
       : m_functor(arg_functor), m_mdr_policy(arg_policy),
         m_policy(Policy(0, m_mdr_policy.m_num_tiles).set_chunk_size(1)),
-        m_reducer(InvalidType()), m_result_ptr(arg_view.data()),
-        m_force_synchronous(!arg_view.impl_track().has_record()) {}
+        m_reducer(InvalidType()), m_result_ptr(arg_view.data()) {}
 
   inline ParallelReduce(const FunctorType &arg_functor,
                         MDRangePolicy arg_policy, const ReducerType &reducer)
       : m_functor(arg_functor), m_mdr_policy(arg_policy),
         m_policy(Policy(0, m_mdr_policy.m_num_tiles).set_chunk_size(1)),
-        m_reducer(reducer), m_result_ptr(reducer.view().data()),
-        m_force_synchronous(!reducer.view().impl_track().has_record()) {}
+        m_reducer(reducer), m_result_ptr(reducer.view().data()) {}
 };
 } // namespace Impl
 } // namespace Kokkos
@@ -1402,8 +1394,6 @@ private:
   pointer_type m_result_ptr;
   const std::size_t m_shared;
 
-  bool m_force_synchronous;
-
   template <class TagType>
   inline static
       typename std::enable_if<std::is_same<TagType, void>::value>::type
@@ -1525,8 +1515,8 @@ public:
         m_result_ptr(arg_result.data()),
         m_shared(arg_policy.scratch_size(0) + arg_policy.scratch_size(1) +
                  FunctorTeamShmemSize<FunctorType>::value(
-                     m_functor, arg_policy.team_size())),
-        m_force_synchronous(!arg_result.impl_track().has_record()) {}
+                                                          m_functor, arg_policy.team_size())) {}
+
 
   inline ParallelReduce(const FunctorType &arg_functor, Policy arg_policy,
                         const ReducerType &reducer)
@@ -1535,8 +1525,7 @@ public:
         m_result_ptr(reducer.view().data()),
         m_shared(arg_policy.scratch_size(0) + arg_policy.scratch_size(1) +
                  FunctorTeamShmemSize<FunctorType>::value(
-                     arg_functor, arg_policy.team_size())),
-        m_force_synchronous(!reducer.view().impl_track().has_record()) {}
+                                                          arg_functor, arg_policy.team_size())) {}
 };
 } // namespace Impl
 } // namespace Kokkos
