@@ -197,60 +197,6 @@ public:
       });
   }
 
-  /*
-  // Must provide task queue execution function
-  void execute_task() const {
-    using hpx::apply;
-    using hpx::lcos::local::counting_semaphore;
-    using task_base_type = typename scheduler_type::task_base_type;
-
-    const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
-
-    thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
-    buffer.resize(num_worker_threads, 512);
-
-    auto &queue = scheduler->queue();
-
-    counting_semaphore sem(0);
-
-    for (int thread = 0; thread < num_worker_threads; ++thread) {
-      apply([this, &sem, &queue, &buffer, num_worker_threads, thread]() {
-        // NOTE: This implementation has been simplified based on the
-        // assumption that team_size = 1. The TBB backend currently only
-        // supports a team size of 1.
-        std::size_t t = Kokkos::Experimental::TBB::impl_hardware_thread_id();
-
-        buffer.get(Kokkos::Experimental::TBB::impl_hardware_thread_id());
-        TBBTeamMember member(TeamPolicyInternal<Kokkos::Experimental::TBB>(
-                                 Kokkos::Experimental::TBB(), num_worker_threads, 1),
-                             0, t, buffer.get(t), 512);
-
-        member_type single_exec(*scheduler, member);
-        member_type &team_exec = single_exec;
-
-        auto &team_scheduler = team_exec.scheduler();
-        auto current_task = OptionalRef<task_base_type>(nullptr);
-
-        while (!queue.is_done()) {
-          current_task =
-              queue.pop_ready_task(team_scheduler.team_scheduler_info());
-
-          if (current_task) {
-            KOKKOS_ASSERT(current_task->is_single_runnable() ||
-                          current_task->is_team_runnable());
-            current_task->as_runnable_task().run(single_exec);
-            queue.complete((*std::move(current_task)).as_runnable_task(),
-                           team_scheduler.team_scheduler_info());
-          }
-        }
-
-        sem.signal(1);
-      });
-    }
-
-    sem.wait(num_worker_threads);
-  }
-  */
   static uint32_t get_max_team_count(execution_space const &espace) {
     return static_cast<uint32_t>(espace.concurrency());
   }
@@ -480,74 +426,6 @@ public:
     return nextTaskToRun == end ? static_cast<TaskType*>(nullptr) : nextTaskToRun;
       
   }
-
-  /*
-  // Must provide task queue execution function
-  void execute_task() const {
-    using hpx::apply;
-    using hpx::lcos::local::counting_semaphore;
-    using task_base_type = typename scheduler_type::task_base;
-    using queue_type = typename scheduler_type::queue_type;
-
-    const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
-    static task_base_type *const end = (task_base_type *)task_base_type::EndTag;
-    constexpr task_base_type *no_more_tasks_sentinel = nullptr;
-
-    thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
-    buffer.resize(num_worker_threads, 512);
-
-    auto &queue = scheduler->queue();
-    queue.initialize_team_queues(num_worker_threads);
-
-    counting_semaphore sem(0);
-
-    for (int thread = 0; thread < num_worker_threads; ++thread) {
-      apply([this, &sem, &buffer, num_worker_threads, thread]() {
-        // NOTE: This implementation has been simplified based on the assumption
-        // that team_size = 1. The TBB backend currently only supports a team
-        // size of 1.
-        std::size_t t = Kokkos::Experimental::TBB::impl_hardware_thread_id();
-
-        buffer.get(Kokkos::Experimental::TBB::impl_hardware_thread_id());
-        TBBTeamMember member(
-            TeamPolicyInternal<Kokkos::Experimental::TBB>(
-                Kokkos::Experimental::TBB(), num_worker_threads, 1),
-            0, t, buffer.get(t), 512);
-
-        member_type single_exec(*scheduler, member);
-        member_type &team_exec = single_exec;
-
-        auto &team_queue = team_exec.scheduler().queue();
-        task_base_type *task = no_more_tasks_sentinel;
-
-        do {
-          if (task != no_more_tasks_sentinel && task != end) {
-            team_queue.complete(task);
-          }
-
-          if (*((volatile int *)&team_queue.m_ready_count) > 0) {
-            task = end;
-            for (int i = 0; i < queue_type::NumQueue && end == task; ++i) {
-              for (int j = 0; j < 2 && end == task; ++j) {
-                task = queue_type::pop_ready_task(&team_queue.m_ready[i][j]);
-              }
-            }
-          } else {
-            task = team_queue.attempt_to_steal_task();
-          }
-
-          if (task != no_more_tasks_sentinel && task != end) {
-            (*task->m_apply)(task, &single_exec);
-          }
-        } while (task != no_more_tasks_sentinel);
-
-        sem.signal(1);
-      });
-    }
-
-    sem.wait(num_worker_threads);
-  }
-  */
 
   template <typename TaskType>
   static void get_function_pointer(typename TaskType::function_type &ptr,
