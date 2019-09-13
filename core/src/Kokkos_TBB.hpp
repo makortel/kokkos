@@ -87,24 +87,6 @@
 #include <type_traits>
 #include <vector>
 
-// There are currently two different implementations for the parallel dispatch
-// functions:
-//
-// - 0: The HPX way. Unfortunately, this comes with unnecessary
-//      overheads at the moment, so there is
-// - 1: The manual way. This way is more verbose and does not take advantage of
-//      e.g. parallel::for_loop in HPX but it is significantly faster in many
-//      benchmarks.
-//
-// In the long run 0 should be the preferred implementation, but until HPX is
-// improved 1 will be the default.
-#ifndef KOKKOS_TBB_IMPLEMENTATION
-#define KOKKOS_TBB_IMPLEMENTATION 1
-#endif
-
-#if (KOKKOS_TBB_IMPLEMENTATION < 0) || (KOKKOS_TBB_IMPLEMENTATION > 1)
-#error "You have chosen an invalid value for KOKKOS_TBB_IMPLEMENTATION"
-#endif
 
 namespace Kokkos {
 namespace Impl {
@@ -1022,54 +1004,136 @@ private:
   const ReducerType m_reducer;
   const pointer_type m_result_ptr;
 
+  using RangeType = tbb::blocked_range<decltype(m_policy.begin())>;
+
+  class SingleBody {
+    FunctorType const& m_functor;
+    ReducerType const& m_reducer;
+    const MDRangePolicy m_mdr_policy;
+    value_type m_sum;
+    
+  public:
+    SingleBody(FunctorType const& functor,
+               ReducerType const& reducer,
+               const MDRangePolicy& policy) :
+      m_functor(functor),
+      m_reducer(reducer),
+      m_mdr_policy(policy) {
+      ValueInit::init(ReducerConditional::select(m_functor, m_reducer),&m_sum);
+    }
+    SingleBody( SingleBody& iOther, tbb::split) : SingleBody(iOther.m_functor, iOther.m_reducer, iOther.m_mdr_policy) {}
+    
+    void operator()(const RangeType& r) {
+      for(auto i = r.begin(); i != r.end(); ++i) {
+        iterate_type(m_mdr_policy, m_functor, m_sum)(i);
+      }
+    }
+    
+    void join(SingleBody& rhs) {
+      ValueJoin::join(ReducerConditional::select(m_functor, m_reducer),
+                      &m_sum,
+                      &rhs.m_sum);
+    }
+
+    value_type& sum() { return m_sum; }
+  };
+  
+  class ArrayBody {
+    FunctorType const& m_functor;
+    ReducerType const& m_reducer;
+    const MDRangePolicy m_mdr_policy;
+    value_type* m_sum;
+    size_t m_size;
+    
+  public:
+    ArrayBody() = delete;
+    ArrayBody( ArrayBody const& ) = delete;
+
+    ArrayBody(FunctorType const& functor,
+              ReducerType const& reducer,
+              const MDRangePolicy& policy,
+              size_t size) :
+      m_functor(functor),
+      m_reducer(reducer),
+      m_mdr_policy(policy),
+      m_sum( new value_type[size] ),
+      m_size(size) {
+      ValueInit::init(ReducerConditional::select(m_functor, m_reducer),m_sum);
+    }
+    ArrayBody( ArrayBody& iOther, tbb::split) : ArrayBody(iOther.m_functor, iOther.m_reducer, iOther.m_mdr_policy, iOther.m_size) {
+    }
+    
+    ~ArrayBody() {
+      delete [] m_sum;
+    }
+
+    void operator()(const RangeType& r) {
+      reference_type update = ValueOps::reference(m_sum);
+      for(auto i = r.begin(); i != r.end(); ++i) {
+        iterate_type(m_mdr_policy, m_functor, update )(i);
+      }
+    }
+    
+    void join(ArrayBody& rhs) {
+      auto old = *m_sum;
+      ValueJoin::join(ReducerConditional::select(m_functor, m_reducer),
+                      m_sum,
+                      rhs.m_sum);
+    }
+    
+    pointer_type sum() { return m_sum; }
+  };
+  
+  void executeImpl(SingleBody const*) const {
+    const int n = Analysis::value_count(
+                                        ReducerConditional::select(m_functor, m_reducer));
+      SingleBody body(m_functor, m_reducer, m_mdr_policy);
+      
+      tbb::this_task_arena::isolate([this,&body]{
+          tbb::parallel_reduce(RangeType(m_policy.begin(),
+                                         m_policy.end(),
+                                         m_policy.chunk_size()),
+                               body);
+          
+        }
+        );
+
+      Kokkos::Impl::FunctorFinal<ReducerTypeFwd, WorkTagFwd>::final(
+                                                                    ReducerConditional::select(m_functor, m_reducer), &body.sum() );
+      
+      if (m_result_ptr != nullptr) {
+        m_result_ptr[0] == body.sum();
+      }
+  }
+
+  void executeImpl(ArrayBody const* ) const {
+    const int n = Analysis::value_count(
+                                        ReducerConditional::select(m_functor, m_reducer));
+      ArrayBody body(m_functor, m_reducer, m_mdr_policy, n);
+      
+      tbb::this_task_arena::isolate([this,&body]{
+          tbb::parallel_reduce(RangeType(m_policy.begin(),
+                                         m_policy.end(),
+                                         m_policy.chunk_size()),
+                               body);
+          
+        }
+        );
+      
+      Kokkos::Impl::FunctorFinal<ReducerTypeFwd, WorkTagFwd>::final(
+                                                                    ReducerConditional::select(m_functor, m_reducer), body.sum() );
+      
+      if (m_result_ptr != nullptr) {
+        for(size_t i=0; i< n; ++i) {
+          m_result_ptr[i] = body.sum()[i];
+        }
+      }
+  }
+
 public:
   
   void execute() const {
-    const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
-    const std::size_t value_size =
-        Analysis::value_size(ReducerConditional::select(m_functor, m_reducer));
-
-    thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
-    buffer.resize(num_worker_threads, value_size);
-
-    tbb::parallel_for(0, num_worker_threads, [this, &buffer](std::size_t t) {
-      ValueInit::init(ReducerConditional::select(m_functor, m_reducer),
-                      reinterpret_cast<pointer_type>(buffer.get(t)));
-    });
-    
-    using RangeType = tbb::blocked_range<decltype(m_policy.begin())>;
-    tbb::this_task_arena::isolate([this, &buffer]{
-        tbb::parallel_for(RangeType(m_policy.begin(),
-                                    m_policy.end(),
-                                    m_policy.chunk_size()),
-                          [this,&buffer](const RangeType& r) {
-                            reference_type update = ValueOps::reference(
-                                                                        reinterpret_cast<pointer_type>(buffer.get(
-                                                                                                                  Kokkos::Experimental::TBB::impl_hardware_thread_id())));
-                            for(auto i = r.begin(); i != r.end(); ++i) {
-                              iterate_type(m_mdr_policy, m_functor, update)(i);
-                            }
-                          });
-      }); //isolate
-
-    for (int i = 1; i < num_worker_threads; ++i) {
-      ValueJoin::join(ReducerConditional::select(m_functor, m_reducer),
-                      reinterpret_cast<pointer_type>(buffer.get(0)),
-                      reinterpret_cast<pointer_type>(buffer.get(i)));
-    }
-
-    Kokkos::Impl::FunctorFinal<ReducerTypeFwd, WorkTagFwd>::final(
-        ReducerConditional::select(m_functor, m_reducer),
-        reinterpret_cast<pointer_type>(buffer.get(0)));
-
-    if (m_result_ptr != nullptr) {
-      const int n = Analysis::value_count(
-          ReducerConditional::select(m_functor, m_reducer));
-
-      for (int j = 0; j < n; ++j) {
-        m_result_ptr[j] = reinterpret_cast<pointer_type>(buffer.get(0))[j];
-      }
-    }
+    executeImpl(static_cast<ArrayBody const*>(nullptr));;
   }
 
   template <class ViewType>
