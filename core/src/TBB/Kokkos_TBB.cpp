@@ -54,8 +54,7 @@ namespace Kokkos {
 namespace Experimental {
 
 bool TBB::m_tbb_initialized = false;
-Kokkos::Impl::thread_buffer TBB::m_buffer;
-  std::unique_ptr<tbb::task_scheduler_init> TBB::m_scheduler;
+std::unique_ptr<tbb::task_scheduler_init> TBB::m_scheduler;
 #if defined(KOKKOS_ENABLE_TBB_ASYNC_DISPATCH)
 tbb::empty_task TBB::m_waiting_task;
 #endif

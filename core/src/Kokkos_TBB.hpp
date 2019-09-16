@@ -151,7 +151,6 @@ namespace Experimental {
 class TBB {
 private:
   static bool m_tbb_initialized;
-  static Kokkos::Impl::thread_buffer m_buffer;
   static std::unique_ptr<tbb::task_scheduler_init> m_scheduler;
 #if defined(KOKKOS_ENABLE_TBB_ASYNC_DISPATCH)
   static tbb::empty_task m_waiting_task;
@@ -273,9 +272,6 @@ public:
     return tbb::this_task_arena::current_thread_index();
   }
 
-  static Kokkos::Impl::thread_buffer &impl_get_buffer() noexcept {
-    return m_buffer;
-  }
 #if defined(KOKKOS_ENABLE_TBB_ASYNC_DISPATCH)
   static hpx::future<void> &impl_get_future() noexcept { return m_future; }
 #endif
@@ -1398,25 +1394,42 @@ private:
 
 public:
   void execute() const { 
-    const int num_worker_threads = Kokkos::Experimental::TBB::concurrency();
-    
-    thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
-    buffer.resize(num_worker_threads, m_shared);
+    constexpr size_t kMaxLocalBuffer = 1024;
 
-    tbb::this_task_arena::isolate([this, &buffer]{
-        using RangeType = tbb::blocked_range<decltype(m_policy.league_size())>;
-        tbb::parallel_for(RangeType(0,
-                                    m_policy.league_size(),
-                                    m_policy.chunk_size()),
-                          [this, &buffer](const RangeType& r) {
-                            for(auto league_rank = r.begin(); league_rank != r.end(); ++league_rank) {
-                              execute_functor<WorkTag>(
-                                                       m_functor, m_policy, league_rank,
-                                                       buffer.get(Kokkos::Experimental::TBB::impl_hardware_thread_id()),
-                                                       m_shared);
-                            }
-                          });
-      });
+    using RangeType = tbb::blocked_range<decltype(m_policy.league_size())>;
+
+    if(kMaxLocalBuffer >= m_shared) {
+      tbb::this_task_arena::isolate([this]{
+          tbb::parallel_for(RangeType(0,
+                                      m_policy.league_size(),
+                                      m_policy.chunk_size()),
+                            [this](const RangeType& r) {
+                              //make sure memory is aligned to at least what a ptr needs
+                              std::array<intptr_t, kMaxLocalBuffer/sizeof(intptr_t)>  buffer;
+                              for(auto league_rank = r.begin(); league_rank != r.end(); ++league_rank) {
+                                execute_functor<WorkTag>(
+                                                         m_functor, m_policy, league_rank,
+                                                         reinterpret_cast<char*>(buffer.data()),
+                                                         m_shared);
+                              }
+                            });
+        });
+    } else {
+      tbb::this_task_arena::isolate([this]{
+          tbb::parallel_for(RangeType(0,
+                                      m_policy.league_size(),
+                                      m_policy.chunk_size()),
+                            [this](const RangeType& r) {
+                              std::unique_ptr<char[]> buffer( new char[m_shared] );
+                              for(auto league_rank = r.begin(); league_rank != r.end(); ++league_rank) {
+                                execute_functor<WorkTag>(
+                                                         m_functor, m_policy, league_rank,
+                                                         buffer.get(),
+                                                         m_shared);
+                              }
+                            });
+        });
+    }
     
  }
 
@@ -1519,7 +1532,7 @@ public:
       const std::size_t value_size =
         Analysis::value_size(ReducerConditional::select(m_functor, m_reducer));
 
-      thread_buffer &buffer = Kokkos::Experimental::TBB::impl_get_buffer();
+      thread_buffer buffer;
       buffer.resize(num_worker_threads, value_size + m_shared);
       
 
