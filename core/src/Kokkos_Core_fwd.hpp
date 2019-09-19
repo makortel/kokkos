@@ -108,7 +108,7 @@ class HPX;  ///< Execution space with HPX back-end.
 
 #if defined( KOKKOS_ENABLE_TBB )
 namespace Experimental {
-class TBB;  ///< Execution space with HPX back-end.
+class TBB;  ///< Execution space with TBB back-end.
 }
 #endif
 
