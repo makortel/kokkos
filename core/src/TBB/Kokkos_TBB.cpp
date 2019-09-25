@@ -65,14 +65,14 @@ int TBB::concurrency() {
 
 void TBB::impl_initialize(int thread_count) {
   if(not m_scheduler) {
-    m_scheduler = std::make_unique<tbb::task_scheduler_init>(thread_count);
+    m_scheduler.reset( new tbb::task_scheduler_init(thread_count) );
     m_tbb_initialized = true;
   }
 }
 
 void TBB::impl_initialize() {
   if(not m_scheduler) {
-    m_scheduler = std::make_unique<tbb::task_scheduler_init>();
+    m_scheduler.reset( new tbb::task_scheduler_init() );
     m_tbb_initialized = true;
   }
 }
