@@ -470,7 +470,12 @@ struct TestReduceCombinatoricalInstantiation {
     value = 0;
     CallParallelReduce( args..., Test::ReduceCombinatorical::AddPlus< double >( value ) );
     if ( ( Kokkos::DefaultExecutionSpace::concurrency() > 1 ) && ( ExecSpace::concurrency() > 1 ) ) {
+#ifdef KOKKOS_ENABLE_TBB
+      //TBB will often finish all work on the first thread before any other threads have joined to help
+      ASSERT_TRUE( expected_result <= value );
+#else
       ASSERT_TRUE( expected_result < value );
+#endif
     }
     else if ( ( Kokkos::DefaultExecutionSpace::concurrency() > 1 ) || ( ExecSpace::concurrency() > 1 ) ) {
       ASSERT_TRUE( expected_result <= value );
@@ -483,7 +488,12 @@ struct TestReduceCombinatoricalInstantiation {
     Test::ReduceCombinatorical::AddPlus< double > add( value );
     CallParallelReduce( args..., add );
     if ( ( Kokkos::DefaultExecutionSpace::concurrency() > 1 ) && ( ExecSpace::concurrency() > 1 ) ) {
+#ifdef KOKKOS_ENABLE_TBB
+      //TBB will often finish all work on the first thread before any other threads have joined to help
+      ASSERT_TRUE( expected_result <= value );
+#else
       ASSERT_TRUE( expected_result < value );
+#endif
     }
     else if ( ( Kokkos::DefaultExecutionSpace::concurrency() > 1 ) || ( ExecSpace::concurrency() > 1 ) ) {
       ASSERT_TRUE( expected_result <= value );

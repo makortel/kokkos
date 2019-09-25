@@ -10,6 +10,7 @@ vpath %.cpp ${KOKKOS_PATH}/core/unit_test/openmp
 vpath %.cpp ${KOKKOS_PATH}/core/unit_test/openmptarget
 vpath %.cpp ${KOKKOS_PATH}/core/unit_test/qthreads
 vpath %.cpp ${KOKKOS_PATH}/core/unit_test/hpx
+vpath %.cpp ${KOKKOS_PATH}/core/unit_test/tbb
 vpath %.cpp ${KOKKOS_PATH}/core/unit_test/cuda
 vpath %.cpp ${KOKKOS_PATH}/core/unit_test/rocm
 
@@ -304,6 +305,45 @@ ifeq ($(KOKKOS_INTERNAL_USE_HPX), 1)
 	TEST_TARGETS += test-hpx
 endif
 
+ifeq ($(KOKKOS_INTERNAL_USE_TBB), 1)
+	OBJ_TBB = UnitTestMainInit.o gtest-all.o
+	OBJ_TBB += TestTBB_Init.o
+	OBJ_TBB += TestTBB_SharedAlloc.o
+	OBJ_TBB += TestTBB_RangePolicy.o
+	OBJ_TBB += TestTBB_View_64bit.o
+	OBJ_TBB += TestTBB_ViewAPI_a.o TestTBB_ViewAPI_b.o TestTBB_ViewAPI_c.o TestTBB_ViewAPI_d.o TestTBB_ViewAPI_e.o
+	OBJ_TBB += TestTBB_ViewMapping_a.o TestTBB_ViewMapping_b.o TestTBB_ViewMapping_subview.o
+	OBJ_TBB += TestTBB_ViewOfClass.o
+	OBJ_TBB += TestTBB_SubView_a.o TestTBB_SubView_b.o
+	OBJ_TBB += TestTBB_SubView_c01.o TestTBB_SubView_c02.o TestTBB_SubView_c03.o
+	OBJ_TBB += TestTBB_SubView_c04.o TestTBB_SubView_c05.o TestTBB_SubView_c06.o
+	OBJ_TBB += TestTBB_SubView_c07.o TestTBB_SubView_c08.o TestTBB_SubView_c09.o
+	OBJ_TBB += TestTBB_SubView_c10.o TestTBB_SubView_c11.o TestTBB_SubView_c12.o
+	OBJ_TBB += TestTBB_SubView_c13.o
+	OBJ_TBB += TestTBB_Reductions.o
+	OBJ_TBB += TestTBB_Scan.o
+	OBJ_TBB += TestTBB_Reducers_a.o TestTBB_Reducers_b.o TestTBB_Reducers_c.o TestTBB_Reducers_d.o
+	OBJ_TBB += TestTBB_Complex.o
+	OBJ_TBB += TestTBB_AtomicOperations_int.o TestTBB_AtomicOperations_unsignedint.o TestTBB_AtomicOperations_longint.o
+	OBJ_TBB += TestTBB_AtomicOperations_unsignedlongint.o TestTBB_AtomicOperations_longlongint.o TestTBB_AtomicOperations_double.o TestTBB_AtomicOperations_float.o
+	OBJ_TBB += TestTBB_AtomicViews.o TestTBB_Atomics.o
+	OBJ_TBB += TestTBB_Team.o
+	OBJ_TBB += TestTBB_TeamVectorRange.o
+	OBJ_TBB += TestTBB_TeamScratch.o
+	OBJ_TBB += TestTBB_TeamReductionScan.o
+	OBJ_TBB += TestTBB_Other.o
+	OBJ_TBB += TestTBB_MDRange_a.o TestTBB_MDRange_b.o TestTBB_MDRange_c.o TestTBB_MDRange_d.o TestTBB_MDRange_e.o
+	OBJ_TBB += TestTBB_Crs.o
+	OBJ_TBB += TestTBB_Task.o
+	OBJ_TBB += TestTBB_WorkGraph.o
+	OBJ_TBB += TestTBB_UniqueToken.o
+
+	TARGETS += KokkosCore_UnitTest_TBB
+	TARGETS += KokkosCore_UnitTest_TBBInterOp
+
+	TEST_TARGETS += test-tbb
+endif
+
 ifeq ($(KOKKOS_INTERNAL_USE_SERIAL), 1)
     OBJ_SERIAL = UnitTestMainInit.o gtest-all.o
     OBJ_SERIAL += TestSerial_Init.o
@@ -382,7 +422,7 @@ TEST_TARGETS += ${INITTESTS_TEST_TARGETS}
 
 KokkosCore_UnitTest_Cuda: $(OBJ_CUDA) $(KOKKOS_LINK_DEPENDS)
 	$(LINK) $(EXTRA_PATH) $(OBJ_CUDA) $(KOKKOS_LIBS) $(LIB) $(KOKKOS_LDFLAGS) $(LDFLAGS) -o KokkosCore_UnitTest_Cuda
-	
+
 KokkosCore_UnitTest_CudaInterOpInit: UnitTestMain.o gtest-all.o TestCuda_InterOp_Init.o $(KOKKOS_LINK_DEPENDS)
 	$(LINK) $(EXTRA_PATH) UnitTestMain.o gtest-all.o TestCuda_InterOp_Init.o $(KOKKOS_LIBS) $(LIB) $(KOKKOS_LDFLAGS) $(LDFLAGS) -o KokkosCore_UnitTest_CudaInterOpInit
 KokkosCore_UnitTest_CudaInterOpStreams: UnitTestMain.o gtest-all.o TestCuda_InterOp_Streams.o $(KOKKOS_LINK_DEPENDS)
@@ -417,6 +457,12 @@ KokkosCore_UnitTest_HPX: $(OBJ_HPX) $(KOKKOS_LINK_DEPENDS)
 
 KokkosCore_UnitTest_HPXInterOp: UnitTestMain.o gtest-all.o TestHPX_InterOp.o $(KOKKOS_LINK_DEPENDS)
 	$(LINK) $(EXTRA_PATH) UnitTestMain.o gtest-all.o TestHPX_InterOp.o $(KOKKOS_LIBS) $(LIB) $(KOKKOS_LDFLAGS) $(LDFLAGS) -o KokkosCore_UnitTest_HPXInterOp
+
+KokkosCore_UnitTest_TBB: $(OBJ_TBB) $(KOKKOS_LINK_DEPENDS)
+	$(LINK) $(EXTRA_PATH) $(OBJ_TBB) $(KOKKOS_LIBS) $(LIB) $(KOKKOS_LDFLAGS) $(LDFLAGS) -o KokkosCore_UnitTest_TBB
+
+KokkosCore_UnitTest_TBBInterOp: UnitTestMain.o gtest-all.o TestTBB_InterOp.o $(KOKKOS_LINK_DEPENDS)
+	$(LINK) $(EXTRA_PATH) UnitTestMain.o gtest-all.o TestTBB_InterOp.o $(KOKKOS_LIBS) $(LIB) $(KOKKOS_LDFLAGS) $(LDFLAGS) -o KokkosCore_UnitTest_TBBInterOp
 
 KokkosCore_UnitTest_HWLOC: $(OBJ_HWLOC) $(KOKKOS_LINK_DEPENDS)
 	$(LINK) $(EXTRA_PATH) $(OBJ_HWLOC) $(KOKKOS_LIBS) $(LIB) $(KOKKOS_LDFLAGS) $(LDFLAGS) -o KokkosCore_UnitTest_HWLOC
@@ -468,6 +514,10 @@ test-qthreads: KokkosCore_UnitTest_Qthreads KokkosCore_UnitTest_Qthreads2
 test-hpx: KokkosCore_UnitTest_HPX
 	./KokkosCore_UnitTest_HPX
 	./KokkosCore_UnitTest_HPXInterOp
+
+test-tbb: KokkosCore_UnitTest_TBB
+	./KokkosCore_UnitTest_TBB
+	./KokkosCore_UnitTest_TBBInterOp
 
 test-hwloc: KokkosCore_UnitTest_HWLOC
 	./KokkosCore_UnitTest_HWLOC

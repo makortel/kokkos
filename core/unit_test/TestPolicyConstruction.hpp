@@ -479,6 +479,9 @@ private:
 #ifdef KOKKOS_ENABLE_HPX
     team_size = 1;
 #endif
+#ifdef KOKKOS_ENABLE_TBB
+    team_size = 1;
+#endif
     int chunk_size = 4;
     int per_team_scratch = 1024;
     int per_thread_scratch = 16;

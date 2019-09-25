@@ -230,6 +230,14 @@ void check_correct_initialization( const Kokkos::InitArguments & argstruct ) {
       return;
     }
 #endif
+
+#ifdef KOKKOS_ENABLE_TBB
+    // TBB uses all cores on machine by default. Skip this test.
+    if ( std::is_same< Kokkos::DefaultExecutionSpace, Kokkos::Experimental::TBB >::value ||
+         std::is_same< Kokkos::DefaultHostExecutionSpace, Kokkos::Experimental::TBB >::value ) {
+      return;
+    }
+#endif
   }
 
   int expected_numa = argstruct.num_numa;

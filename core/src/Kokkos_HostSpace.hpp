@@ -117,6 +117,8 @@ public:
   typedef Kokkos::Threads   execution_space;
 #elif defined( KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_HPX )
   typedef Kokkos::Experimental::HPX execution_space;
+#elif defined( KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_TBB )
+  typedef Kokkos::Experimental::TBB execution_space;
 //#elif defined( KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_QTHREADS )
 //  typedef Kokkos::Qthreads  execution_space;
 #elif defined( KOKKOS_ENABLE_OPENMP )
@@ -127,6 +129,8 @@ public:
 //  typedef Kokkos::Qthreads  execution_space;
 #elif defined( KOKKOS_ENABLE_HPX )
   typedef Kokkos::Experimental::HPX execution_space;
+#elif defined( KOKKOS_ENABLE_TBB )
+  typedef Kokkos::Experimental::TBB execution_space;
 #elif defined( KOKKOS_ENABLE_SERIAL )
   typedef Kokkos::Serial    execution_space;
 #else
