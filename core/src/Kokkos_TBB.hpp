@@ -230,11 +230,11 @@ public:
 
   static int impl_thread_pool_rank() noexcept {
     auto id = tbb::this_task_arena::current_thread_index();
-    if(tbb::this_task_arena::current_thread_index() == tbb::task_arena::not_initialized) {
+    if(id == tbb::task_arena::not_initialized) {
       return 0;
     }
     //TBB index starts at 0
-    return tbb::this_task_arena::current_thread_index()+1;
+    return id+1;
   }
 
   static int impl_thread_pool_size(int depth) {
