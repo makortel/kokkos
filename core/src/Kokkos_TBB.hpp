@@ -152,9 +152,6 @@ class TBB {
 private:
   static bool m_tbb_initialized;
   static std::unique_ptr<tbb::task_scheduler_init> m_scheduler;
-#if defined(KOKKOS_ENABLE_TBB_ASYNC_DISPATCH)
-  static tbb::empty_task m_waiting_task;
-#endif
 
 public:
   using execution_space = TBB;
@@ -172,18 +169,8 @@ public:
 
   static bool in_parallel(TBB const & = TBB()) noexcept { return false; }
   static void impl_static_fence(TBB const & = TBB())
-  #if defined(KOKKOS_ENABLE_TBB_ASYNC_DISPATCH)
-    {
-      if (hpx::threads::get_self_ptr() == nullptr) {
-        hpx::threads::run_as_hpx_thread([]() { impl_get_future().wait(); });
-      } else {
-        impl_get_future().wait();
-      }
-    }
-  #else
         noexcept {
     }
-  #endif
 
   #ifdef KOKKOS_ENABLE_DEPRECATED_CODE
   static void fence(TBB const & = TBB()) {
@@ -194,11 +181,7 @@ public:
   }
 
   static bool is_asynchronous(TBB const & = TBB()) noexcept {
-#if defined(KOKKOS_ENABLE_TBB_ASYNC_DISPATCH)
-    return true;
-#else
     return false;
-#endif
   }
 
   static std::vector<TBB> partition(...) {
@@ -272,10 +255,6 @@ public:
     return tbb::this_task_arena::current_thread_index();
   }
 
-#if defined(KOKKOS_ENABLE_TBB_ASYNC_DISPATCH)
-  static hpx::future<void> &impl_get_future() noexcept { return m_future; }
-#endif
-
   static constexpr const char *name() noexcept { return "TBB"; }
 };
 } // namespace Experimental
@@ -311,9 +290,6 @@ public:
   using size_type = int;
   UniqueToken(execution_space const & = execution_space()) noexcept {}
 
-  // NOTE: Currently this assumes that there is no oversubscription.
-  // hpx::get_num_worker_threads can't be used directly because it may yield
-  // it's task (problematic if called after hpx::get_worker_thread_num).
   int size() const noexcept { return TBB::impl_max_hardware_threads(); }
   int acquire() const noexcept { return TBB::impl_hardware_thread_id(); }
   void release(int) const noexcept {}
@@ -325,9 +301,6 @@ public:
   using size_type = int;
   UniqueToken(execution_space const & = execution_space()) noexcept {}
 
-  // NOTE: Currently this assumes that there is no oversubscription.
-  // hpx::get_num_worker_threads can't be used directly because it may yield
-  // it's task (problematic if called after hpx::get_worker_thread_num).
   int size() const noexcept { return TBB::impl_max_hardware_threads(); }
   int acquire() const noexcept { return TBB::impl_hardware_thread_id(); }
   void release(int) const noexcept {}
